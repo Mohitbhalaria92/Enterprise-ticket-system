@@ -1,7 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const db = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
@@ -9,7 +11,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health Check Route & DB Connection Test
+// Routes
+app.use('/api/auth', authRoutes);
+
+// Health Check Route
 app.get('/api/health', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT 1 + 1 AS result');
