@@ -1,9 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
 const db = require('./config/db');
+
+// Import Routes
 const authRoutes = require('./routes/authRoutes');
+const ticketRoutes = require('./routes/ticketRoutes');
 
 const app = express();
 
@@ -11,8 +13,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Mount Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/tickets', ticketRoutes);
 
 // Health Check Route
 app.get('/api/health', async (req, res) => {
