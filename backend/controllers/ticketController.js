@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
 // 1. Create Ticket
-exports.createTicket = async (req, res) => {
+exports.createTicket = async (req, res, next) => {
   try {
     const { title, description, priority } = req.body;
     const created_by = req.user.id;
@@ -20,28 +20,119 @@ exports.createTicket = async (req, res) => {
       ticketId: result.insertId
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
-// 2. Get Tickets
-exports.getTickets = async (req, res) => {
+// 2. Get Tickets (Paginated, Filtered, Searched, & RBAC Scoped)
+exports.getTickets = async (req, res, next) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const { status, priority, search } = req.query;
+
+    let baseQuery = `
+      FROM tickets t 
+      JOIN users u ON t.created_by = u.id 
+      LEFT JOIN users a ON t.assigned_to = a.id 
+    `;
+
+    const whereClauses = [];
+    const queryParams = [];
+
+    // RBAC: Standard users only see tickets they created or are assigned to
+    if (req.user.role === 'USER') {
+      whereClauses.push(`(t.created_by = ? OR t.assigned_to = ?)`);
+      queryParams.push(req.user.id, req.user.id);
+    }
+
+    // Filter by Status
+    if (status) {
+      whereClauses.push(`t.status = ?`);
+      queryParams.push(status.toUpperCase());
+    }
+
+    // Filter by Priority
+    if (priority) {
+      whereClauses.push(`t.priority = ?`);
+      queryParams.push(priority.toUpperCase());
+    }
+
+    // Search by Title or Description
+    if (search) {
+      whereClauses.push(`(t.title LIKE ? OR t.description LIKE ?)`);
+      queryParams.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (whereClauses.length > 0) {
+      baseQuery += ` WHERE ` + whereClauses.join(' AND ');
+    }
+
+    // Get Total Count for Metadata
+    const countSql = `SELECT COUNT(*) AS total ${baseQuery}`;
+    const [countRows] = await db.execute(countSql, queryParams);
+    const totalTickets = countRows[0].total;
+    const totalPages = Math.ceil(totalTickets / limit);
+
+    // Get Paginated Data
+    const dataSql = `
+      SELECT t.*, u.name as creator_name, a.name as assignee_name 
+      ${baseQuery} 
+      ORDER BY t.created_at DESC 
+      LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
+    `;
+
+    const [tickets] = await db.execute(dataSql, queryParams);
+
+    res.json({
+      pagination: {
+        totalTickets,
+        totalPages,
+        currentPage: page,
+        limit
+      },
+      tickets
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 3. Get Single Ticket by ID
+exports.getTicketById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
     const [tickets] = await db.execute(
       `SELECT t.*, u.name as creator_name, a.name as assignee_name 
        FROM tickets t 
        JOIN users u ON t.created_by = u.id 
        LEFT JOIN users a ON t.assigned_to = a.id 
-       ORDER BY t.created_at DESC`
+       WHERE t.id = ?`,
+      [id]
     );
-    res.json(tickets);
+
+    if (tickets.length === 0) {
+      return res.status(404).json({ message: "Ticket not found." });
+    }
+
+    const ticket = tickets[0];
+
+    // Ownership check for standard USER role
+    if (req.user.role === 'USER' && ticket.created_by !== req.user.id && ticket.assigned_to !== req.user.id) {
+      return res.status(403).json({ message: "Access forbidden: You do not have permission to view this ticket." });
+    }
+
+    res.json(ticket);
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
-// 3. Update Ticket
-exports.updateTicket = async (req, res) => {
+// 4. Update Ticket
+exports.updateTicket = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status, priority, assigned_to } = req.body;
@@ -62,12 +153,29 @@ exports.updateTicket = async (req, res) => {
 
     res.json({ message: "Ticket updated successfully!" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
-// 4. Add Comment
-exports.addComment = async (req, res) => {
+// 5. Delete Ticket
+exports.deleteTicket = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const [result] = await db.execute(`DELETE FROM tickets WHERE id = ?`, [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Ticket not found." });
+    }
+
+    res.json({ message: "Ticket deleted successfully!" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 6. Add Comment
+exports.addComment = async (req, res, next) => {
   try {
     const { id: ticket_id } = req.params;
     const { message } = req.body;
@@ -87,12 +195,12 @@ exports.addComment = async (req, res) => {
       commentId: result.insertId 
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
 
-// 5. Get Comments
-exports.getComments = async (req, res) => {
+// 7. Get Comments
+exports.getComments = async (req, res, next) => {
   try {
     const { id: ticket_id } = req.params;
 
@@ -107,6 +215,6 @@ exports.getComments = async (req, res) => {
 
     res.json(comments);
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    next(error);
   }
 };
