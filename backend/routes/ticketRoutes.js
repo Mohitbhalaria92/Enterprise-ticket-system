@@ -1,13 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { createTicket, getTickets, updateTicket } = require('../controllers/ticketController');
-const { verifyToken, authorizeRoles } = require('../middleware/authMiddleware');
+const verifyToken = require('../middleware/authMiddleware');
+const { 
+  createTicket, 
+  getTickets, 
+  updateTicket, 
+  addComment, 
+  getComments 
+} = require('../controllers/ticketController');
 
-// Protect all routes with JWT verification
-router.use(verifyToken);
+// Ticket Routes
+router.post('/', verifyToken, createTicket);
+router.get('/', verifyToken, getTickets);
+router.put('/:id', verifyToken, updateTicket);
 
-router.post('/', createTicket);
-router.get('/', getTickets);
-router.patch('/:id', authorizeRoles('ADMIN', 'AGENT'), updateTicket);
+// Comment Routes
+router.post('/:id/comments', verifyToken, addComment);
+router.get('/:id/comments', verifyToken, getComments);
 
 module.exports = router;
