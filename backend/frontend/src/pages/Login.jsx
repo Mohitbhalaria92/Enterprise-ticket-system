@@ -14,8 +14,8 @@ export default function Login() {
     setError('');
     try {
       await login(email, password);
-      alert('Login successful!');
-      navigate('/'); // Redirect to dashboard/home later
+      // Seamlessly redirect to the dashboard without alert modal interruptions
+      navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to login');
     }
@@ -42,7 +42,7 @@ export default function Login() {
           required 
           style={{ padding: '8px' }}
         />
-        <button type="submit" style={{ padding: '10px', background: '#007bff', color: '#white', border: 'none' }}>
+        <button type="submit" style={{ padding: '10px', background: '#007bff', color: 'white', border: 'none', cursor: 'pointer' }}>
           Login
         </button>
       </form>
