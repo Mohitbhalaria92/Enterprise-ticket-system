@@ -155,7 +155,16 @@ export default function Dashboard() {
                 {sortedTickets.map((ticket) => (
                   <tr key={ticket.id} style={{ borderBottom: '1px solid #374151' }}>
                     <td style={{ padding: '16px', fontSize: '14px', color: '#d1d5db' }}>#{ticket.id}</td>
-                    <td style={{ padding: '16px', fontSize: '14px', fontWeight: '500', color: '#ffffff' }}>{ticket.title}</td>
+                    <td style={{ padding: '16px', fontSize: '14px', fontWeight: '500' }}>
+                      <span 
+                        onClick={() => navigate(`/tickets/${ticket.id}`)}
+                        style={{ color: '#60a5fa', cursor: 'pointer', textDecoration: 'none' }}
+                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                      >
+                        {ticket.title}
+                      </span>
+                    </td>
                     <td style={{ padding: '16px', fontSize: '14px', color: '#9ca3af', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {ticket.description || 'No description'}
                     </td>
