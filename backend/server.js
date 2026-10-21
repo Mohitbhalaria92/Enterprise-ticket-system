@@ -6,6 +6,7 @@ const db = require('./config/db');
 // Import Routes
 const authRoutes = require('./routes/authRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
+const commentRoutes = require('./routes/commentRoutes');
 
 // Import Global Error Middleware
 const errorHandler = require('./middleware/errorMiddleware');
@@ -19,6 +20,7 @@ app.use(express.json());
 // Mount Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api', commentRoutes); // Handles /api/tickets/:ticketId/comments
 
 // Health Check Route
 app.get('/api/health', async (req, res, next) => {

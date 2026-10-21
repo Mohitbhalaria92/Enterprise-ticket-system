@@ -8,10 +8,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'priority'
+  const [sortBy, setSortBy] = useState('newest');
   const navigate = useNavigate();
 
-  // Fetch all tickets on load
+  // Retrieve stored user details and role
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isStaff = user.role === 'ADMIN' || user.role === 'AGENT';
+
   const fetchTickets = async () => {
     try {
       const response = await API.get('/tickets');
@@ -37,7 +40,6 @@ export default function Dashboard() {
     navigate('/login');
   };
 
-  // Safely handle newly created ticket data and refresh list
   const handleTicketCreated = (newTicketData) => {
     const ticket = newTicketData.ticket || newTicketData.data || newTicketData;
     if (ticket && ticket.id && ticket.title) {
@@ -47,10 +49,22 @@ export default function Dashboard() {
     }
   };
 
-  // Priority weight mapping for sorting
-  const priorityWeight = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+  const handleStatusChange = async (ticketId, newStatus) => {
+    try {
+      const response = await API.patch(`/tickets/${ticketId}`, { status: newStatus });
+      const updated = response.data;
+      
+      setTickets((prevTickets) =>
+        prevTickets.map((t) => (t.id === ticketId ? { ...t, status: updated.status } : t))
+      );
+    } catch (err) {
+      console.error('Failed to update ticket status', err);
+      alert('Failed to update ticket status.');
+    }
+  };
 
-  // Compute sorted tickets based on selected option
+  const priorityWeight = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
   const sortedTickets = [...tickets].sort((a, b) => {
     if (sortBy === 'newest') {
       return b.id - a.id;
@@ -59,7 +73,7 @@ export default function Dashboard() {
     } else if (sortBy === 'priority') {
       const weightA = priorityWeight[a.priority?.toUpperCase()] || 0;
       const weightB = priorityWeight[b.priority?.toUpperCase()] || 0;
-      return weightB - weightA; // High priority first
+      return weightB - weightA;
     }
     return 0;
   });
@@ -69,7 +83,23 @@ export default function Dashboard() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#111827', color: '#ffffff', padding: '24px', boxSizing: 'border-box' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>Enterprise Ticket Dashboard</h1>
+        <div>
+          <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>Enterprise Ticket Dashboard</h1>
+          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#9ca3af' }}>
+            Logged in as: <span style={{ color: '#ffffff', fontWeight: '500' }}>{user.email || 'User'}</span> 
+            <span style={{ 
+              marginLeft: '8px', 
+              padding: '2px 8px', 
+              fontSize: '10px', 
+              fontWeight: 'bold', 
+              borderRadius: '4px', 
+              backgroundColor: user.role === 'ADMIN' ? '#b91c1c' : user.role === 'AGENT' ? '#d97706' : '#1e40af', 
+              color: '#ffffff' 
+            }}>
+              {user.role || 'USER'}
+            </span>
+          </p>
+        </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button 
             onClick={() => setIsModalOpen(true)}
@@ -89,10 +119,10 @@ export default function Dashboard() {
       {error && <div style={{ maxWidth: '1200px', margin: '0 auto 24px auto', backgroundColor: '#7f1d1d', color: '#fca5a5', padding: '12px', borderRadius: '4px' }}>{error}</div>}
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: '#1f2937', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '24px' }}>
-        
-        {/* Header and Sorting Controls Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0, color: '#e5e7eb' }}>All Support Tickets</h2>
+          <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0, color: '#e5e7eb' }}>
+            {isStaff ? 'All Organization Tickets (Staff View)' : 'My Support Tickets'}
+          </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '14px', color: '#9ca3af' }}>Sort by:</span>
             <select 
@@ -130,9 +160,31 @@ export default function Dashboard() {
                       {ticket.description || 'No description'}
                     </td>
                     <td style={{ padding: '16px', fontSize: '14px', color: '#d1d5db' }}>
-                      <span style={{ padding: '2px 8px', fontSize: '12px', fontWeight: '600', borderRadius: '9999px', backgroundColor: '#1e3a8a', color: '#93c5fd' }}>
-                        {ticket.status || 'OPEN'}
-                      </span>
+                      {isStaff ? (
+                        <select
+                          value={ticket.status || 'OPEN'}
+                          onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            borderRadius: '4px',
+                            backgroundColor: '#1e3a8a',
+                            color: '#93c5fd',
+                            border: '1px solid #3b82f6',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="OPEN">OPEN</option>
+                          <option value="IN_PROGRESS">IN_PROGRESS</option>
+                          <option value="RESOLVED">RESOLVED</option>
+                          <option value="CLOSED">CLOSED</option>
+                        </select>
+                      ) : (
+                        <span style={{ padding: '2px 8px', fontSize: '12px', fontWeight: '600', borderRadius: '9999px', backgroundColor: '#1e3a8a', color: '#93c5fd' }}>
+                          {ticket.status || 'OPEN'}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '16px', fontSize: '14px', color: '#d1d5db' }}>{ticket.priority}</td>
                   </tr>
