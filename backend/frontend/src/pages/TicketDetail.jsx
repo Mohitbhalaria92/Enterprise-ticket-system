@@ -9,6 +9,7 @@ export default function TicketDetail() {
   const [ticket, setTicket] = useState(null);
   const [comments, setComments] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -17,9 +18,6 @@ export default function TicketDetail() {
 
   const fetchTicketDetails = async () => {
     try {
-      // Fetch ticket list or a single ticket endpoint if available. 
-      // If you have a single ticket route, use API.get(`/tickets/${id}`)
-      // Here we fetch all and find the match, or directly hit the endpoint:
       const res = await API.get('/tickets');
       const tickets = Array.isArray(res.data) ? res.data : res.data.tickets || [];
       const found = tickets.find((t) => t.id === parseInt(id));
@@ -53,12 +51,31 @@ export default function TicketDetail() {
 
   const handlePostComment = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() && !selectedFile) return;
 
     try {
-      const res = await API.post(`/tickets/${id}/comments`, { message: newMessage });
+      let attachmentUrl = null;
+
+      // Handle File Upload if selected
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+
+        const uploadRes = await API.post(`/tickets/${id}/attachments`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        attachmentUrl = uploadRes.data.filePath || uploadRes.data.url;
+      }
+
+      // Post Comment along with optional attachment URL
+      const res = await API.post(`/tickets/${id}/comments`, { 
+        message: newMessage,
+        attachment_url: attachmentUrl 
+      });
+
       setComments((prev) => [...prev, res.data]);
       setNewMessage('');
+      setSelectedFile(null);
     } catch (err) {
       console.error('Failed to post comment', err);
       alert('Failed to post comment.');
@@ -136,7 +153,7 @@ export default function TicketDetail() {
           </div>
         </div>
 
-        {/* Discussion / Comments Section */}
+        {/* Discussion / Comments & Activity Section */}
         <div style={{ backgroundColor: '#1f2937', borderRadius: '8px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
           <h3 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 16px 0', color: '#e5e7eb' }}>Activity & Comments</h3>
 
@@ -145,23 +162,37 @@ export default function TicketDetail() {
               <p style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic' }}>No comments yet. Start the conversation below.</p>
             ) : (
               comments.map((comment) => (
-                <div key={comment.id} style={{ backgroundColor: '#111827', borderRadius: '6px', padding: '16px', border: '1px solid #374151' }}>
+                <div key={comment.id || Math.random()} style={{ backgroundColor: '#111827', borderRadius: '6px', padding: '16px', border: '1px solid #374151' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: '600', fontSize: '14px', color: '#ffffff' }}>{comment.user_name || comment.user_email}</span>
+                      <span style={{ fontWeight: '600', fontSize: '14px', color: '#ffffff' }}>{comment.user_name || comment.user_email || 'User'}</span>
                       <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', backgroundColor: comment.user_role === 'ADMIN' ? '#b91c1c' : comment.user_role === 'AGENT' ? '#d97706' : '#374151', color: '#ffffff' }}>
                         {comment.user_role || 'USER'}
                       </span>
                     </div>
-                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>{new Date(comment.created_at).toLocaleString()}</span>
+                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>{comment.created_at ? new Date(comment.created_at).toLocaleString() : 'Just now'}</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#d1d5db', whiteSpace: 'pre-wrap' }}>{comment.message}</p>
+                  {comment.message && <p style={{ margin: 0, fontSize: '14px', color: '#d1d5db', whiteSpace: 'pre-wrap' }}>{comment.message}</p>}
+                  
+                  {/* Display File Attachment Link if present */}
+                  {comment.attachment_url && (
+                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #1f2937' }}>
+                      <a 
+                        href={`http://localhost:5000/${comment.attachment_url}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        style={{ color: '#60a5fa', fontSize: '13px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        📎 View Attachment
+                      </a>
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
 
-          {/* New Comment Form */}
+          {/* New Comment & File Attachment Form */}
           <form onSubmit={handlePostComment} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <textarea
               rows="3"
@@ -170,7 +201,13 @@ export default function TicketDetail() {
               onChange={(e) => setNewMessage(e.target.value)}
               style={{ width: '100%', padding: '12px', backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '6px', color: '#ffffff', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+              <input 
+                type="file" 
+                onChange={(e) => setSelectedFile(e.target.files[0])}
+                style={{ fontSize: '13px', color: '#9ca3af', cursor: 'pointer' }}
+              />
               <button
                 type="submit"
                 style={{ backgroundColor: '#2563eb', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', fontWeight: '500', cursor: 'pointer', fontSize: '14px' }}
