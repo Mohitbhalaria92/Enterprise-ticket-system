@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../config/db'); // Adjust path to your database configuration
+const db = require('../config/db');
 const { verifyToken } = require('../middleware/authMiddleware');
+const { logTicketActivity } = require('../utils/logger');
+const { determineDomain } = require('../utils/router');
 
-// Get tickets based on user role
-// ADMIN and AGENT see all tickets; regular USER sees only their own created tickets
 router.get('/', verifyToken, async (req, res) => {
   try {
     let query = 'SELECT * FROM tickets';
@@ -24,20 +24,39 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-// Create a new ticket linked to created_by
+router.get('/:id/activity', verifyToken, async (req, res) => {
+  try {
+    const [logs] = await db.query(
+      `SELECT al.*, u.name as user_name FROM ticket_activity_logs al
+       JOIN users u ON al.user_id = u.id
+       WHERE al.ticket_id = ? ORDER BY al.created_at DESC`,
+      [req.params.id]
+    );
+    res.json(logs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error fetching activity logs' });
+  }
+});
+
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const { title, description, priority } = req.body;
+    const { title, description, priority, domain, configuration_item } = req.body;
     if (!title || !description) {
       return res.status(400).json({ message: 'Title and description are required' });
     }
 
+    const assignedDomain = domain || determineDomain(title, description, configuration_item);
+
     const [result] = await db.query(
-      'INSERT INTO tickets (title, description, priority, created_by, status) VALUES (?, ?, ?, ?, ?)',
-      [title, description, priority || 'MEDIUM', req.user.id, 'OPEN']
+      'INSERT INTO tickets (title, description, priority, domain, created_by, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [title, description, priority || 'MEDIUM', assignedDomain, req.user.id, 'OPEN']
     );
 
-    const [newTicket] = await db.query('SELECT * FROM tickets WHERE id = ?', [result.insertId]);
+    const ticketId = result.insertId;
+    await logTicketActivity(ticketId, req.user.id, 'TICKET_CREATED', `Ticket created and routed to domain: ${assignedDomain}`);
+
+    const [newTicket] = await db.query('SELECT * FROM tickets WHERE id = ?', [ticketId]);
     res.status(201).json(newTicket[0]);
   } catch (err) {
     console.error(err);
@@ -45,14 +64,13 @@ router.post('/', verifyToken, async (req, res) => {
   }
 });
 
-// Update ticket status, assignment, or priority (ADMIN & AGENT only)
 router.patch('/:id', verifyToken, async (req, res) => {
   try {
     if (req.user.role !== 'ADMIN' && req.user.role !== 'AGENT') {
       return res.status(403).json({ message: 'Access denied: Insufficient permissions' });
     }
 
-    const { status, assigned_to, priority } = req.body;
+    const { status, assigned_to, priority, domain } = req.body;
     const ticketId = req.params.id;
 
     let updates = [];
@@ -70,6 +88,10 @@ router.patch('/:id', verifyToken, async (req, res) => {
       updates.push('priority = ?');
       params.push(priority);
     }
+    if (domain) {
+      updates.push('domain = ?');
+      params.push(domain);
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ message: 'No valid fields provided for update' });
@@ -85,6 +107,19 @@ router.patch('/:id', verifyToken, async (req, res) => {
     const [updatedTicket] = await db.query('SELECT * FROM tickets WHERE id = ?', [ticketId]);
     if (updatedTicket.length === 0) {
       return res.status(404).json({ message: 'Ticket not found' });
+    }
+
+    if (status) {
+      await logTicketActivity(ticketId, req.user.id, 'STATUS_CHANGE', `Changed status to ${status}`);
+    }
+    if (priority) {
+      await logTicketActivity(ticketId, req.user.id, 'PRIORITY_CHANGE', `Changed priority to ${priority}`);
+    }
+    if (assigned_to !== undefined) {
+      await logTicketActivity(ticketId, req.user.id, 'ASSIGNMENT_CHANGE', `Assigned agent ID to ${assigned_to || 'Unassigned'}`);
+    }
+    if (domain) {
+      await logTicketActivity(ticketId, req.user.id, 'DOMAIN_CHANGE', `Changed domain to ${domain}`);
     }
 
     res.json(updatedTicket[0]);

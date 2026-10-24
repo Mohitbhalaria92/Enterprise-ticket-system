@@ -14,8 +14,35 @@ export default function TicketDetail() {
   const [error, setError] = useState('');
   const [notification, setNotification] = useState('');
 
+  // Read active theme set from Dashboard ('dark' or 'light')
+  const [theme] = useState(localStorage.getItem('theme') || 'dark');
+
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isStaff = user.role === 'ADMIN' || user.role === 'AGENT';
+
+  // Theme color dictionary synchronized with Dashboard
+  const colors = {
+    dark: {
+      bg: '#111827',
+      cardBg: '#1f2937',
+      textMain: '#ffffff',
+      textMuted: '#9ca3af',
+      border: '#374151',
+      inputBg: '#111827',
+      commentBg: '#111827'
+    },
+    light: {
+      bg: '#f3f4f6',
+      cardBg: '#ffffff',
+      textMain: '#111827',
+      textMuted: '#6b7280',
+      border: '#d1d5db',
+      inputBg: '#ffffff',
+      commentBg: '#f9fafb'
+    }
+  };
+
+  const currentTheme = colors[theme];
 
   const showNotification = (msg) => {
     setNotification(msg);
@@ -109,7 +136,6 @@ export default function TicketDetail() {
     }
   };
 
-  // Color mapping helpers
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'CRITICAL': return { bg: '#7f1d1d', text: '#fca5a5', border: '#dc2626' };
@@ -129,15 +155,15 @@ export default function TicketDetail() {
     }
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: '#ffffff' }}>Loading ticket thread...</div>;
-  if (error) return <div style={{ padding: '40px', textAlign: 'center', color: '#fca5a5' }}>{error}</div>;
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: currentTheme.textMain, backgroundColor: currentTheme.bg, minHeight: '100vh' }}>Loading ticket thread...</div>;
+  if (error) return <div style={{ padding: '40px', textAlign: 'center', color: '#fca5a5', backgroundColor: currentTheme.bg, minHeight: '100vh' }}>{error}</div>;
   if (!ticket) return null;
 
   const priorityStyle = getPriorityColor(ticket.priority);
   const statusStyle = getStatusColor(ticket.status);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#111827', color: '#ffffff', padding: '24px', boxSizing: 'border-box' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: currentTheme.bg, color: currentTheme.textMain, padding: '24px', boxSizing: 'border-box', transition: 'background-color 0.3s' }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         
         {/* Floating Notification Toast */}
@@ -147,19 +173,20 @@ export default function TicketDetail() {
           </div>
         )}
 
-        {/* Navigation & Header */}
+        {/* Back Navigation Button */}
         <button 
           onClick={() => navigate('/dashboard')}
-          style={{ backgroundColor: '#374151', color: '#ffffff', padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', marginBottom: '20px', fontSize: '14px' }}
+          style={{ backgroundColor: currentTheme.cardBg, color: currentTheme.textMain, padding: '8px 14px', borderRadius: '4px', border: `1px solid ${currentTheme.border}`, cursor: 'pointer', marginBottom: '20px', fontSize: '14px', fontWeight: '500' }}
         >
           &larr; Back to Dashboard
         </button>
 
-        <div style={{ backgroundColor: '#1f2937', borderRadius: '8px', padding: '24px', marginBottom: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+        {/* Ticket Main Card */}
+        <div style={{ backgroundColor: currentTheme.cardBg, borderRadius: '8px', padding: '24px', marginBottom: '24px', border: `1px solid ${currentTheme.border}`, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
             <div>
-              <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: 'bold' }}>TICKET #{ticket.id}</span>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '4px 0 0 0', color: '#ffffff' }}>{ticket.title}</h1>
+              <span style={{ fontSize: '12px', color: currentTheme.textMuted, fontWeight: 'bold' }}>TICKET #{ticket.id}</span>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '4px 0 0 0', color: currentTheme.textMain }}>{ticket.title}</h1>
             </div>
             
             {/* Staff Controls & Color Badges */}
@@ -170,14 +197,8 @@ export default function TicketDetail() {
                     value={ticket.priority || 'MEDIUM'}
                     onChange={(e) => handlePriorityChange(e.target.value)}
                     style={{
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      borderRadius: '4px',
-                      backgroundColor: priorityStyle.bg,
-                      color: priorityStyle.text,
-                      border: `1px solid ${priorityStyle.border}`,
-                      cursor: 'pointer'
+                      padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '4px',
+                      backgroundColor: priorityStyle.bg, color: priorityStyle.text, border: `1px solid ${priorityStyle.border}`, cursor: 'pointer'
                     }}
                   >
                     <option value="LOW">LOW</option>
@@ -190,14 +211,8 @@ export default function TicketDetail() {
                     value={ticket.status || 'OPEN'}
                     onChange={(e) => handleStatusChange(e.target.value)}
                     style={{
-                      padding: '6px 12px',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                      borderRadius: '4px',
-                      backgroundColor: statusStyle.bg,
-                      color: statusStyle.text,
-                      border: `1px solid ${statusStyle.border}`,
-                      cursor: 'pointer'
+                      padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '4px',
+                      backgroundColor: statusStyle.bg, color: statusStyle.text, border: `1px solid ${statusStyle.border}`, cursor: 'pointer'
                     }}
                   >
                     <option value="OPEN">OPEN</option>
@@ -219,34 +234,34 @@ export default function TicketDetail() {
             </div>
           </div>
 
-          <div style={{ borderTop: '1px solid #374151', paddingTop: '16px', color: '#d1d5db', fontSize: '15px', lineHeight: '1.6' }}>
-            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{ticket.description}</p>
+          <div style={{ borderTop: `1px solid ${currentTheme.border}`, paddingTop: '16px', color: currentTheme.textMuted, fontSize: '15px', lineHeight: '1.6' }}>
+            <p style={{ margin: 0, whiteSpace: 'pre-wrap', color: currentTheme.textMain }}>{ticket.description}</p>
           </div>
         </div>
 
-        {/* Discussion / Comments & Activity Section */}
-        <div style={{ backgroundColor: '#1f2937', borderRadius: '8px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 16px 0', color: '#e5e7eb' }}>Activity & Comments</h3>
+        {/* Discussion / Comments Section */}
+        <div style={{ backgroundColor: currentTheme.cardBg, borderRadius: '8px', padding: '24px', border: `1px solid ${currentTheme.border}`, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 16px 0', color: currentTheme.textMain }}>Activity & Comments</h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
             {comments.length === 0 ? (
-              <p style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic' }}>No comments yet. Start the conversation below.</p>
+              <p style={{ color: currentTheme.textMuted, fontSize: '14px', fontStyle: 'italic' }}>No comments yet. Start the conversation below.</p>
             ) : (
               comments.map((comment) => (
-                <div key={comment.id || Math.random()} style={{ backgroundColor: '#111827', borderRadius: '6px', padding: '16px', border: '1px solid #374151' }}>
+                <div key={comment.id || Math.random()} style={{ backgroundColor: currentTheme.commentBg, borderRadius: '6px', padding: '16px', border: `1px solid ${currentTheme.border}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: '600', fontSize: '14px', color: '#ffffff' }}>{comment.user_name || comment.user_email || 'User'}</span>
+                      <span style={{ fontWeight: '600', fontSize: '14px', color: currentTheme.textMain }}>{comment.user_name || comment.user_email || 'User'}</span>
                       <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '3px', backgroundColor: comment.user_role === 'ADMIN' ? '#b91c1c' : comment.user_role === 'AGENT' ? '#d97706' : '#374151', color: '#ffffff' }}>
                         {comment.user_role || 'USER'}
                       </span>
                     </div>
-                    <span style={{ fontSize: '12px', color: '#9ca3af' }}>{comment.created_at ? new Date(comment.created_at).toLocaleString() : 'Just now'}</span>
+                    <span style={{ fontSize: '12px', color: currentTheme.textMuted }}>{comment.created_at ? new Date(comment.created_at).toLocaleString() : 'Just now'}</span>
                   </div>
-                  {comment.message && <p style={{ margin: 0, fontSize: '14px', color: '#d1d5db', whiteSpace: 'pre-wrap' }}>{comment.message}</p>}
+                  {comment.message && <p style={{ margin: 0, fontSize: '14px', color: currentTheme.textMain, whiteSpace: 'pre-wrap' }}>{comment.message}</p>}
                   
                   {comment.attachment_url && (
-                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #1f2937' }}>
+                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: `1px solid ${currentTheme.border}` }}>
                       <a 
                         href={`http://localhost:5000/${comment.attachment_url}`} 
                         target="_blank" 
@@ -262,21 +277,21 @@ export default function TicketDetail() {
             )}
           </div>
 
-          {/* New Comment & File Attachment Form */}
+          {/* New Comment Form */}
           <form onSubmit={handlePostComment} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <textarea
               rows="3"
               placeholder="Type your reply or status update..."
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              style={{ width: '100%', padding: '12px', backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '6px', color: '#ffffff', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' }}
+              style={{ width: '100%', padding: '12px', backgroundColor: currentTheme.inputBg, border: `1px solid ${currentTheme.border}`, borderRadius: '6px', color: currentTheme.textMain, fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' }}
             />
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <input 
                 type="file" 
                 onChange={(e) => setSelectedFile(e.target.files[0])}
-                style={{ fontSize: '13px', color: '#9ca3af', cursor: 'pointer' }}
+                style={{ fontSize: '13px', color: currentTheme.textMuted, cursor: 'pointer' }}
               />
               <button
                 type="submit"

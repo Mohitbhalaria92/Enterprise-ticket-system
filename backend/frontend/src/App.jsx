@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import TicketDetail from './pages/TicketDetail';
+import AdminUsers from './pages/AdminUsers';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/tickets/:id" element={<TicketDetail />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </AuthProvider>

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     description TEXT NOT NULL,
     status ENUM('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED') DEFAULT 'OPEN',
     priority ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL') DEFAULT 'MEDIUM',
+    domain VARCHAR(50) DEFAULT 'GENERAL',
     created_by INT NOT NULL,
     assigned_to INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -26,7 +27,8 @@ CREATE TABLE IF NOT EXISTS tickets (
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
     INDEX idx_status (status),
-    INDEX idx_assigned_to (assigned_to)
+    INDEX idx_assigned_to (assigned_to),
+    INDEX idx_domain (domain)
 );
 
 -- 4. Comments Table
@@ -51,19 +53,30 @@ CREATE TABLE IF NOT EXISTS attachments (
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );
 
--- 6. Audit Logs / Activity Feed Table
+-- 6. Audit Logs / Activity Feed Table (Original)
 CREATE TABLE IF NOT EXISTS ticket_activity (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ticket_id INT NOT NULL,
     user_id INT NOT NULL,
-    action_type VARCHAR(50) NOT NULL, -- e.g., 'COMMENT', 'STATUS_CHANGE', 'ATTACHMENT'
+    action_type VARCHAR(50) NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );
 
--- 7. Seed Default Accounts (Password for all 3: admin123)
--- Uses bcrypt hash for 'admin123' ($2a$10$E83mG19xI9.VjN3Gv.58duZ0uW.bWcK6/A/e50bM3f2B33J23.3K)
+-- 7. Dedicated Audit Logs Table
+CREATE TABLE IF NOT EXISTS ticket_activity_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id INT NOT NULL,
+    user_id INT NOT NULL,
+    action_type VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- 8. Seed Default Accounts
 INSERT INTO users (name, email, password_hash, role) 
 VALUES 
   ('Admin User', 'admin@test.com', '$2a$10$E83mG19xI9.VjN3Gv.58duZ0uW.bWcK6/A/e50bM3f2B33J23.3K', 'ADMIN'),
