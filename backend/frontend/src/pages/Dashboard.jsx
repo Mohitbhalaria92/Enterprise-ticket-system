@@ -9,11 +9,47 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // Theme State ('dark' or 'light')
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
   const navigate = useNavigate();
 
-  // Retrieve stored user details and role
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isStaff = user.role === 'ADMIN' || user.role === 'AGENT';
+
+  // Toggle and save theme
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+  };
+
+  // Color theme variables dictionary
+  const colors = {
+    dark: {
+      bg: '#111827',
+      cardBg: '#1f2937',
+      textMain: '#ffffff',
+      textMuted: '#9ca3af',
+      border: '#374151',
+      inputBg: '#111827',
+      tableHover: '#1f2937',
+    },
+    light: {
+      bg: '#f3f4f6',
+      cardBg: '#ffffff',
+      textMain: '#111827',
+      textMuted: '#6b7280',
+      border: '#d1d5db',
+      inputBg: '#ffffff',
+      tableHover: '#f9fafb',
+    }
+  };
+
+  const currentTheme = colors[theme];
 
   const fetchTickets = async () => {
     try {
@@ -55,7 +91,7 @@ export default function Dashboard() {
       const updated = response.data;
       
       setTickets((prevTickets) =>
-        prevTickets.map((t) => (t.id === ticketId ? { ...t, status: updated.status } : t))
+        prevTickets.map((t) => (t.id === ticketId ? { ...t, status: updated.status || newStatus } : t))
       );
     } catch (err) {
       console.error('Failed to update ticket status', err);
@@ -65,48 +101,64 @@ export default function Dashboard() {
 
   const priorityWeight = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
 
-  const sortedTickets = [...tickets].sort((a, b) => {
-    if (sortBy === 'newest') {
-      return b.id - a.id;
-    } else if (sortBy === 'oldest') {
-      return a.id - b.id;
-    } else if (sortBy === 'priority') {
-      const weightA = priorityWeight[a.priority?.toUpperCase()] || 0;
-      const weightB = priorityWeight[b.priority?.toUpperCase()] || 0;
-      return weightB - weightA;
-    }
-    return 0;
-  });
+  const filteredAndSortedTickets = [...tickets]
+    .filter((ticket) => {
+      if (statusFilter !== 'ALL' && ticket.status !== statusFilter) return false;
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const titleMatch = ticket.title && ticket.title.toLowerCase().includes(q);
+        const descMatch = ticket.description && ticket.description.toLowerCase().includes(q);
+        return titleMatch || descMatch;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'newest') return b.id - a.id;
+      if (sortBy === 'oldest') return a.id - b.id;
+      if (sortBy === 'priority') {
+        const weightA = priorityWeight[a.priority?.toUpperCase()] || 0;
+        const weightB = priorityWeight[b.priority?.toUpperCase()] || 0;
+        return weightB - weightA;
+      }
+      return 0;
+    });
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: '#ffffff' }}>Loading dashboard...</div>;
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center', backgroundColor: currentTheme.bg, color: currentTheme.textMain, minHeight: '100vh' }}>Loading dashboard...</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#111827', color: '#ffffff', padding: '24px', boxSizing: 'border-box' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: currentTheme.bg, color: currentTheme.textMain, padding: '24px', boxSizing: 'border-box', transition: 'background-color 0.3s, color 0.3s' }}>
+      
+      {/* Top Header */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>Enterprise Ticket Dashboard</h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#9ca3af' }}>
-            Logged in as: <span style={{ color: '#ffffff', fontWeight: '500' }}>{user.email || 'User'}</span> 
+          <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0, color: currentTheme.textMain }}>Enterprise Ticket Dashboard</h1>
+          <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: currentTheme.textMuted }}>
+            Logged in as: <span style={{ color: currentTheme.textMain, fontWeight: '500' }}>{user.email || 'User'}</span> 
             <span style={{ 
-              marginLeft: '8px', 
-              padding: '2px 8px', 
-              fontSize: '10px', 
-              fontWeight: 'bold', 
-              borderRadius: '4px', 
-              backgroundColor: user.role === 'ADMIN' ? '#b91c1c' : user.role === 'AGENT' ? '#d97706' : '#1e40af', 
-              color: '#ffffff' 
+              marginLeft: '8px', padding: '2px 8px', fontSize: '10px', fontWeight: 'bold', borderRadius: '4px', 
+              backgroundColor: user.role === 'ADMIN' ? '#b91c1c' : user.role === 'AGENT' ? '#d97706' : '#1e40af', color: '#ffffff' 
             }}>
               {user.role || 'USER'}
             </span>
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* Theme Toggle Button */}
+          <button 
+            onClick={toggleTheme}
+            style={{ backgroundColor: currentTheme.cardBg, color: currentTheme.textMain, border: `1px solid ${currentTheme.border}`, padding: '8px 14px', borderRadius: '4px', fontWeight: '500', cursor: 'pointer', fontSize: '14px' }}
+          >
+            {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
+
           <button 
             onClick={() => setIsModalOpen(true)}
             style={{ backgroundColor: '#2563eb', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', fontWeight: '500', cursor: 'pointer' }}
           >
             + New Ticket
           </button>
+          
           <button 
             onClick={handleLogout}
             style={{ backgroundColor: '#dc2626', color: '#ffffff', padding: '8px 16px', borderRadius: '4px', border: 'none', fontWeight: '500', cursor: 'pointer' }}
@@ -118,17 +170,45 @@ export default function Dashboard() {
 
       {error && <div style={{ maxWidth: '1200px', margin: '0 auto 24px auto', backgroundColor: '#7f1d1d', color: '#fca5a5', padding: '12px', borderRadius: '4px' }}>{error}</div>}
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: '#1f2937', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0, color: '#e5e7eb' }}>
-            {isStaff ? 'All Organization Tickets (Staff View)' : 'My Support Tickets'}
-          </h2>
+      {/* Main Container */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: currentTheme.cardBg, borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '24px', border: `1px solid ${currentTheme.border}` }}>
+        
+        {/* Controls Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px', backgroundColor: currentTheme.bg, padding: '16px', borderRadius: '6px', border: `1px solid ${currentTheme.border}` }}>
+          
+          <div style={{ flex: '1', minWidth: '220px' }}>
+            <input 
+              type="text"
+              placeholder="Search by title or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px', backgroundColor: currentTheme.inputBg, border: `1px solid ${currentTheme.border}`, borderRadius: '4px', color: currentTheme.textMain, fontSize: '14px', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {['ALL', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                style={{
+                  padding: '6px 10px', fontSize: '11px', fontWeight: 'bold', borderRadius: '4px', border: 'none', cursor: 'pointer',
+                  backgroundColor: statusFilter === status ? '#2563eb' : currentTheme.cardBg,
+                  color: statusFilter === status ? '#ffffff' : currentTheme.textMuted,
+                  border: `1px solid ${statusFilter === status ? '#2563eb' : currentTheme.border}`
+                }}
+              >
+                {status.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px', color: '#9ca3af' }}>Sort by:</span>
+            <span style={{ fontSize: '13px', color: currentTheme.textMuted }}>Sort:</span>
             <select 
               value={sortBy} 
               onChange={(e) => setSortBy(e.target.value)}
-              style={{ padding: '6px 12px', backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '4px', color: '#ffffff', fontSize: '14px', cursor: 'pointer' }}
+              style={{ padding: '6px 12px', backgroundColor: currentTheme.inputBg, border: `1px solid ${currentTheme.border}`, borderRadius: '4px', color: currentTheme.textMain, fontSize: '14px', cursor: 'pointer' }}
             >
               <option value="newest">Newest ID</option>
               <option value="oldest">Oldest ID</option>
@@ -137,24 +217,30 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {sortedTickets.length === 0 ? (
-          <p style={{ color: '#9ca3af' }}>No tickets found.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0, color: currentTheme.textMain }}>
+            {isStaff ? 'All Organization Tickets (Staff View)' : 'My Support Tickets'} ({filteredAndSortedTickets.length})
+          </h2>
+        </div>
+
+        {filteredAndSortedTickets.length === 0 ? (
+          <p style={{ color: currentTheme.textMuted, padding: '20px 0', textAlign: 'center' }}>No tickets found matching your criteria.</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #374151' }}>
-                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase' }}>ID</th>
-                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase' }}>Title</th>
-                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase' }}>Description</th>
-                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase' }}>Status</th>
-                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase' }}>Priority</th>
+                <tr style={{ borderBottom: `1px solid ${currentTheme.border}` }}>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: currentTheme.textMuted, textTransform: 'uppercase' }}>ID</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: currentTheme.textMuted, textTransform: 'uppercase' }}>Title</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: currentTheme.textMuted, textTransform: 'uppercase' }}>Description</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: currentTheme.textMuted, textTransform: 'uppercase' }}>Status</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: currentTheme.textMuted, textTransform: 'uppercase' }}>Priority</th>
                 </tr>
               </thead>
               <tbody>
-                {sortedTickets.map((ticket) => (
-                  <tr key={ticket.id} style={{ borderBottom: '1px solid #374151' }}>
-                    <td style={{ padding: '16px', fontSize: '14px', color: '#d1d5db' }}>#{ticket.id}</td>
+                {filteredAndSortedTickets.map((ticket) => (
+                  <tr key={ticket.id} style={{ borderBottom: `1px solid ${currentTheme.border}` }}>
+                    <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMain }}>#{ticket.id}</td>
                     <td style={{ padding: '16px', fontSize: '14px', fontWeight: '500' }}>
                       <span 
                         onClick={() => navigate(`/tickets/${ticket.id}`)}
@@ -165,23 +251,17 @@ export default function Dashboard() {
                         {ticket.title}
                       </span>
                     </td>
-                    <td style={{ padding: '16px', fontSize: '14px', color: '#9ca3af', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMuted, maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {ticket.description || 'No description'}
                     </td>
-                    <td style={{ padding: '16px', fontSize: '14px', color: '#d1d5db' }}>
+                    <td style={{ padding: '16px', fontSize: '14px' }}>
                       {isStaff ? (
                         <select
                           value={ticket.status || 'OPEN'}
                           onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
                           style={{
-                            padding: '4px 8px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            borderRadius: '4px',
-                            backgroundColor: '#1e3a8a',
-                            color: '#93c5fd',
-                            border: '1px solid #3b82f6',
-                            cursor: 'pointer'
+                            padding: '4px 8px', fontSize: '12px', fontWeight: '600', borderRadius: '4px',
+                            backgroundColor: '#1e3a8a', color: '#93c5fd', border: '1px solid #3b82f6', cursor: 'pointer'
                           }}
                         >
                           <option value="OPEN">OPEN</option>
@@ -195,7 +275,7 @@ export default function Dashboard() {
                         </span>
                       )}
                     </td>
-                    <td style={{ padding: '16px', fontSize: '14px', color: '#d1d5db' }}>{ticket.priority}</td>
+                    <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMain }}>{ticket.priority}</td>
                   </tr>
                 ))}
               </tbody>

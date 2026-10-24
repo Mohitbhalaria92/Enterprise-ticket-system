@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS comments (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Add attachments table
+-- 5. Attachments Table
 CREATE TABLE IF NOT EXISTS attachments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ticket_id INT NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );
 
--- Add audit logs / activity feed table
+-- 6. Audit Logs / Activity Feed Table
 CREATE TABLE IF NOT EXISTS ticket_activity (
     id INT AUTO_INCREMENT PRIMARY KEY,
     ticket_id INT NOT NULL,
@@ -61,3 +61,12 @@ CREATE TABLE IF NOT EXISTS ticket_activity (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
 );
+
+-- 7. Seed Default Accounts (Password for all 3: admin123)
+-- Uses bcrypt hash for 'admin123' ($2a$10$E83mG19xI9.VjN3Gv.58duZ0uW.bWcK6/A/e50bM3f2B33J23.3K)
+INSERT INTO users (name, email, password_hash, role) 
+VALUES 
+  ('Admin User', 'admin@test.com', '$2a$10$E83mG19xI9.VjN3Gv.58duZ0uW.bWcK6/A/e50bM3f2B33J23.3K', 'ADMIN'),
+  ('Support Agent', 'agent@test.com', '$2a$10$E83mG19xI9.VjN3Gv.58duZ0uW.bWcK6/A/e50bM3f2B33J23.3K', 'AGENT'),
+  ('Standard User', 'user@test.com', '$2a$10$E83mG19xI9.VjN3Gv.58duZ0uW.bWcK6/A/e50bM3f2B33J23.3K', 'USER')
+ON DUPLICATE KEY UPDATE id=id;

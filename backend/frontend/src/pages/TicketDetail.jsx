@@ -12,9 +12,15 @@ export default function TicketDetail() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notification, setNotification] = useState('');
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const isStaff = user.role === 'ADMIN' || user.role === 'AGENT';
+
+  const showNotification = (msg) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(''), 4000);
+  };
 
   const fetchTicketDetails = async () => {
     try {
@@ -56,7 +62,6 @@ export default function TicketDetail() {
     try {
       let attachmentUrl = null;
 
-      // Handle File Upload if selected
       if (selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
@@ -67,7 +72,6 @@ export default function TicketDetail() {
         attachmentUrl = uploadRes.data.filePath || uploadRes.data.url;
       }
 
-      // Post Comment along with optional attachment URL
       const res = await API.post(`/tickets/${id}/comments`, { 
         message: newMessage,
         attachment_url: attachmentUrl 
@@ -76,6 +80,7 @@ export default function TicketDetail() {
       setComments((prev) => [...prev, res.data]);
       setNewMessage('');
       setSelectedFile(null);
+      showNotification('Comment posted successfully!');
     } catch (err) {
       console.error('Failed to post comment', err);
       alert('Failed to post comment.');
@@ -84,11 +89,43 @@ export default function TicketDetail() {
 
   const handleStatusChange = async (newStatus) => {
     try {
-      const res = await API.patch(`/tickets/${id}`, { status: newStatus });
-      setTicket((prev) => ({ ...prev, status: res.data.status }));
+      const res = await API.patch(`/tickets/${id}`, { status: newStatus, priority: ticket.priority });
+      setTicket((prev) => ({ ...prev, status: res.data.status || newStatus }));
+      showNotification(`Status updated to ${newStatus}`);
     } catch (err) {
       console.error('Failed to update status', err);
       alert('Failed to update ticket status.');
+    }
+  };
+
+  const handlePriorityChange = async (newPriority) => {
+    try {
+      const res = await API.patch(`/tickets/${id}`, { status: ticket.status, priority: newPriority });
+      setTicket((prev) => ({ ...prev, priority: res.data.priority || newPriority }));
+      showNotification(`Priority updated to ${newPriority}`);
+    } catch (err) {
+      console.error('Failed to update priority', err);
+      alert('Failed to update ticket priority.');
+    }
+  };
+
+  // Color mapping helpers
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'CRITICAL': return { bg: '#7f1d1d', text: '#fca5a5', border: '#dc2626' };
+      case 'HIGH': return { bg: '#78350f', text: '#fde047', border: '#d97706' };
+      case 'MEDIUM': return { bg: '#1e3a8a', text: '#93c5fd', border: '#3b82f6' };
+      default: return { bg: '#374151', text: '#d1d5db', border: '#4b5563' };
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'OPEN': return { bg: '#1e3a8a', text: '#93c5fd', border: '#3b82f6' };
+      case 'IN_PROGRESS': return { bg: '#78350f', text: '#fde047', border: '#d97706' };
+      case 'RESOLVED': return { bg: '#065f46', text: '#6ee7b7', border: '#10b981' };
+      case 'CLOSED': return { bg: '#374151', text: '#9ca3af', border: '#4b5563' };
+      default: return { bg: '#374151', text: '#d1d5db', border: '#4b5563' };
     }
   };
 
@@ -96,10 +133,20 @@ export default function TicketDetail() {
   if (error) return <div style={{ padding: '40px', textAlign: 'center', color: '#fca5a5' }}>{error}</div>;
   if (!ticket) return null;
 
+  const priorityStyle = getPriorityColor(ticket.priority);
+  const statusStyle = getStatusColor(ticket.status);
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#111827', color: '#ffffff', padding: '24px', boxSizing: 'border-box' }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         
+        {/* Floating Notification Toast */}
+        {notification && (
+          <div style={{ backgroundColor: '#065f46', color: '#6ee7b7', padding: '12px 16px', borderRadius: '6px', marginBottom: '20px', fontSize: '14px', fontWeight: '500', border: '1px solid #10b981', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+            ✨ {notification}
+          </div>
+        )}
+
         {/* Navigation & Header */}
         <button 
           onClick={() => navigate('/dashboard')}
@@ -115,35 +162,59 @@ export default function TicketDetail() {
               <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '4px 0 0 0', color: '#ffffff' }}>{ticket.title}</h1>
             </div>
             
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 'bold', borderRadius: '4px', backgroundColor: '#374151', color: '#d1d5db' }}>
-                Priority: {ticket.priority}
-              </span>
-              
+            {/* Staff Controls & Color Badges */}
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
               {isStaff ? (
-                <select
-                  value={ticket.status || 'OPEN'}
-                  onChange={(e) => handleStatusChange(e.target.value)}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    borderRadius: '4px',
-                    backgroundColor: '#1e3a8a',
-                    color: '#93c5fd',
-                    border: '1px solid #3b82f6',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="OPEN">OPEN</option>
-                  <option value="IN_PROGRESS">IN_PROGRESS</option>
-                  <option value="RESOLVED">RESOLVED</option>
-                  <option value="CLOSED">CLOSED</option>
-                </select>
+                <>
+                  <select
+                    value={ticket.priority || 'MEDIUM'}
+                    onChange={(e) => handlePriorityChange(e.target.value)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      borderRadius: '4px',
+                      backgroundColor: priorityStyle.bg,
+                      color: priorityStyle.text,
+                      border: `1px solid ${priorityStyle.border}`,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                  </select>
+
+                  <select
+                    value={ticket.status || 'OPEN'}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      borderRadius: '4px',
+                      backgroundColor: statusStyle.bg,
+                      color: statusStyle.text,
+                      border: `1px solid ${statusStyle.border}`,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <option value="OPEN">OPEN</option>
+                    <option value="IN_PROGRESS">IN_PROGRESS</option>
+                    <option value="RESOLVED">RESOLVED</option>
+                    <option value="CLOSED">CLOSED</option>
+                  </select>
+                </>
               ) : (
-                <span style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '9999px', backgroundColor: '#1e3a8a', color: '#93c5fd' }}>
-                  {ticket.status || 'OPEN'}
-                </span>
+                <>
+                  <span style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '4px', backgroundColor: priorityStyle.bg, color: priorityStyle.text, border: `1px solid ${priorityStyle.border}` }}>
+                    Priority: {ticket.priority}
+                  </span>
+                  <span style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', borderRadius: '9999px', backgroundColor: statusStyle.bg, color: statusStyle.text, border: `1px solid ${statusStyle.border}` }}>
+                    {ticket.status || 'OPEN'}
+                  </span>
+                </>
               )}
             </div>
           </div>
@@ -174,7 +245,6 @@ export default function TicketDetail() {
                   </div>
                   {comment.message && <p style={{ margin: 0, fontSize: '14px', color: '#d1d5db', whiteSpace: 'pre-wrap' }}>{comment.message}</p>}
                   
-                  {/* Display File Attachment Link if present */}
                   {comment.attachment_url && (
                     <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #1f2937' }}>
                       <a 
