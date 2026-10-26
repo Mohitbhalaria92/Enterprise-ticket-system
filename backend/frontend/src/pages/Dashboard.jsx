@@ -49,11 +49,11 @@ export default function Dashboard() {
   const currentTheme = colors[theme];
 
   const domainColors = {
-    RND: '#7c3aed',
-    IT_PLATFORMS: '#2563eb',
-    SECURITY: '#dc2626',
-    DATABASE: '#d97706',
-    GENERAL: '#4b5563'
+    'R&D': '#7c3aed',
+    'IT Platforms': '#2563eb',
+    'Security': '#dc2626',
+    'Database': '#d97706',
+    'General': '#4b5563'
   };
 
   const fetchTickets = async () => {
@@ -129,7 +129,7 @@ export default function Dashboard() {
   const filteredAndSortedTickets = [...tickets]
     .filter((ticket) => {
       if (statusFilter !== 'ALL' && ticket.status !== statusFilter) return false;
-      if (domainFilter !== 'ALL' && (ticket.domain || 'GENERAL') !== domainFilter) return false;
+      if (domainFilter !== 'ALL' && (ticket.domain || 'General') !== domainFilter) return false;
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
         const titleMatch = ticket.title && ticket.title.toLowerCase().includes(q);
@@ -237,11 +237,11 @@ export default function Dashboard() {
               style={{ padding: '8px 12px', backgroundColor: currentTheme.inputBg, border: `1px solid ${currentTheme.border}`, borderRadius: '4px', color: currentTheme.textMain, fontSize: '14px', cursor: 'pointer' }}
             >
               <option value="ALL">All Domains</option>
-              <option value="RND">R&D</option>
-              <option value="IT_PLATFORMS">IT Platforms</option>
-              <option value="SECURITY">Security</option>
-              <option value="DATABASE">Database</option>
-              <option value="GENERAL">General</option>
+              <option value="R&D">R&D</option>
+              <option value="IT Platforms">IT Platforms</option>
+              <option value="Security">Security</option>
+              <option value="Database">Database</option>
+              <option value="General">General</option>
             </select>
           </div>
 
@@ -298,71 +298,74 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filteredAndSortedTickets.map((ticket) => (
-                  <tr key={ticket.id} style={{ borderBottom: `1px solid ${currentTheme.border}` }}>
-                    <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMain }}>#{ticket.id}</td>
-                    <td style={{ padding: '16px', fontSize: '14px', fontWeight: '500' }}>
-                      <span 
-                        onClick={() => navigate(`/tickets/${ticket.id}`)}
-                        style={{ color: '#60a5fa', cursor: 'pointer', textDecoration: 'none' }}
-                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                      >
-                        {ticket.title}
-                      </span>
-                    </td>
-                    
-                    {/* Domain Column / Staff Editable Dropdown */}
-                    <td style={{ padding: '16px', fontSize: '12px' }}>
-                      {isStaff ? (
-                        <select
-                          value={ticket.domain || 'GENERAL'}
-                          onChange={(e) => handleDomainChange(ticket.id, e.target.value)}
-                          style={{
-                            padding: '4px 8px', fontSize: '11px', fontWeight: '600', borderRadius: '4px',
-                            backgroundColor: domainColors[ticket.domain || 'GENERAL'] || '#4b5563', color: '#fff', border: '1px solid #374151', cursor: 'pointer'
-                          }}
+                {filteredAndSortedTickets.map((ticket) => {
+                  const currentDomain = ticket.domain || 'General';
+                  return (
+                    <tr key={ticket.id} style={{ borderBottom: `1px solid ${currentTheme.border}` }}>
+                      <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMain }}>#{ticket.id}</td>
+                      <td style={{ padding: '16px', fontSize: '14px', fontWeight: '500' }}>
+                        <span 
+                          onClick={() => navigate(`/tickets/${ticket.id}`)}
+                          style={{ color: '#60a5fa', cursor: 'pointer', textDecoration: 'none' }}
+                          onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                          onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
                         >
-                          <option value="GENERAL">GENERAL</option>
-                          <option value="RND">R&D</option>
-                          <option value="IT_PLATFORMS">IT Platforms</option>
-                          <option value="SECURITY">Security</option>
-                          <option value="DATABASE">Database</option>
-                        </select>
-                      ) : (
-                        <span style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: domainColors[ticket.domain || 'GENERAL'] || '#4b5563', color: '#fff', fontWeight: '600' }}>
-                          {ticket.domain || 'GENERAL'}
+                          {ticket.title}
                         </span>
-                      )}
-                    </td>
+                      </td>
+                      
+                      {/* Domain Column / Staff Editable Dropdown */}
+                      <td style={{ padding: '16px', fontSize: '12px' }}>
+                        {isStaff ? (
+                          <select
+                            value={currentDomain}
+                            onChange={(e) => handleDomainChange(ticket.id, e.target.value)}
+                            style={{
+                              padding: '4px 8px', fontSize: '11px', fontWeight: '600', borderRadius: '4px',
+                              backgroundColor: domainColors[currentDomain] || '#4b5563', color: '#fff', border: '1px solid #374151', cursor: 'pointer'
+                            }}
+                          >
+                            <option value="General">General</option>
+                            <option value="R&D">R&D</option>
+                            <option value="IT Platforms">IT Platforms</option>
+                            <option value="Security">Security</option>
+                            <option value="Database">Database</option>
+                          </select>
+                        ) : (
+                          <span style={{ padding: '4px 8px', borderRadius: '4px', backgroundColor: domainColors[currentDomain] || '#4b5563', color: '#fff', fontWeight: '600' }}>
+                            {currentDomain}
+                          </span>
+                        )}
+                      </td>
 
-                    <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMuted, maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {ticket.description || 'No description'}
-                    </td>
-                    <td style={{ padding: '16px', fontSize: '14px' }}>
-                      {isStaff ? (
-                        <select
-                          value={ticket.status || 'OPEN'}
-                          onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
-                          style={{
-                            padding: '4px 8px', fontSize: '12px', fontWeight: '600', borderRadius: '4px',
-                            backgroundColor: '#1e3a8a', color: '#93c5fd', border: '1px solid #3b82f6', cursor: 'pointer'
-                          }}
-                        >
-                          <option value="OPEN">OPEN</option>
-                          <option value="IN_PROGRESS">IN_PROGRESS</option>
-                          <option value="RESOLVED">RESOLVED</option>
-                          <option value="CLOSED">CLOSED</option>
-                        </select>
-                      ) : (
-                        <span style={{ padding: '2px 8px', fontSize: '12px', fontWeight: '600', borderRadius: '9999px', backgroundColor: '#1e3a8a', color: '#93c5fd' }}>
-                          {ticket.status || 'OPEN'}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMain }}>{ticket.priority}</td>
-                  </tr>
-                ))}
+                      <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMuted, maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {ticket.description || 'No description'}
+                      </td>
+                      <td style={{ padding: '16px', fontSize: '14px' }}>
+                        {isStaff ? (
+                          <select
+                            value={ticket.status || 'OPEN'}
+                            onChange={(e) => handleStatusChange(ticket.id, e.target.value)}
+                            style={{
+                              padding: '4px 8px', fontSize: '12px', fontWeight: '600', borderRadius: '4px',
+                              backgroundColor: '#1e3a8a', color: '#93c5fd', border: '1px solid #3b82f6', cursor: 'pointer'
+                            }}
+                          >
+                            <option value="OPEN">OPEN</option>
+                            <option value="IN_PROGRESS">IN_PROGRESS</option>
+                            <option value="RESOLVED">RESOLVED</option>
+                            <option value="CLOSED">CLOSED</option>
+                          </select>
+                        ) : (
+                          <span style={{ padding: '2px 8px', fontSize: '12px', fontWeight: '600', borderRadius: '9999px', backgroundColor: '#1e3a8a', color: '#93c5fd' }}>
+                            {ticket.status || 'OPEN'}
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '16px', fontSize: '14px', color: currentTheme.textMain }}>{ticket.priority}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

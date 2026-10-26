@@ -3,7 +3,7 @@ const db = require('../config/db');
 // 1. Create Ticket
 exports.createTicket = async (req, res, next) => {
   try {
-    const { title, description, priority } = req.body;
+    const { title, description, domain, priority } = req.body;
     const created_by = req.user.id;
 
     if (!title || !description) {
@@ -11,8 +11,8 @@ exports.createTicket = async (req, res, next) => {
     }
 
     const [result] = await db.execute(
-      `INSERT INTO tickets (title, description, priority, created_by) VALUES (?, ?, ?, ?)`,
-      [title, description, priority || 'MEDIUM', created_by]
+      `INSERT INTO tickets (title, description, domain, priority, created_by) VALUES (?, ?, ?, ?, ?)`,
+      [title, description, domain || 'General', priority || 'MEDIUM', created_by]
     );
 
     res.status(201).json({
@@ -31,7 +31,7 @@ exports.getTickets = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    const { status, priority, search } = req.query;
+    const { status, priority, search, domain } = req.query;
 
     let baseQuery = `
       FROM tickets t 
@@ -58,6 +58,12 @@ exports.getTickets = async (req, res, next) => {
     if (priority) {
       whereClauses.push(`t.priority = ?`);
       queryParams.push(priority.toUpperCase());
+    }
+
+    // Filter by Domain
+    if (domain && domain !== 'All Domains') {
+      whereClauses.push(`t.domain = ?`);
+      queryParams.push(domain);
     }
 
     // Search by Title or Description
@@ -135,16 +141,17 @@ exports.getTicketById = async (req, res, next) => {
 exports.updateTicket = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, priority, assigned_to } = req.body;
+    const { status, priority, assigned_to, domain } = req.body;
 
     const [result] = await db.execute(
       `UPDATE tickets 
        SET status = COALESCE(?, status), 
            priority = COALESCE(?, priority), 
            assigned_to = COALESCE(?, assigned_to),
+           domain = COALESCE(?, domain),
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [status || null, priority || null, assigned_to || null, id]
+      [status || null, priority || null, assigned_to || null, domain || null, id]
     );
 
     if (result.affectedRows === 0) {
